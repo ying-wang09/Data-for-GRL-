@@ -1,0 +1,1 @@
+This dataset provides the original measurements supporting the analyses presented in the manuscript entitled “Warm-core eddy intensifies surface mixotrophic bacterivory and fuels mesopelagic heterotrophic grazing”
