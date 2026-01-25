@@ -1,0 +1,77 @@
+
+#1. Example code for PCA visualization, using the temperature and salinity in the surface as an illustrative example.
+library(ade4)
+library(ggplot2)
+library(vegan)
+## read data: import the preprocessed data, including grouping information of each sample.
+dat<-read.delim("Surface.TS.data.txt",header = T,row.names = 1)
+group <- read.delim("Surface.group.txt",header = T,row.names = 1)
+group$Eddy <- factor(group$Eddy,levels = c('Ref.','Eddy'))
+
+##Standardized data
+env.std = decostand(dat[,c("Temperature","Salinity")], method = "standardize", MARGIN=2)
+
+##PCA analysis
+pca <- prcomp(env.std,scale = TRUE)
+xlab <- paste("PC1","(",round((summary(pca))$importance[2,1]*100,1),"%)",sep="")
+ylab <- paste("PC2","(",round((summary(pca))$importance[2,2]*100,1),"%)",sep="")
+x<-"PC1"
+y<-"PC2"
+data_x <- data.frame(varnames=rownames(pca$x), pca$x)
+plot_data <- merge(data_x, group, by="row.names", all=TRUE)
+plot_data <- na.omit(plot_data)
+pca.env <- data.frame(pca$rotation)[1:2]
+pca.env$name <- rownames(pca.env)
+plot_data$Eddy <- group$Eddy
+
+##PCA plot
+p<- ggplot(plot_data, aes(PC1,PC2))+geom_point(aes(color = Eddy,shape = Eddy),size=4.5)+
+  xlab(xlab)+ylab(ylab)+theme_bw()#+coord_equal(ratio=2) 
+p <- p + geom_segment(data = pca.env, aes(x = 0, y = 0, xend = -PC1*4, yend = PC2*4), 
+                        arrow = arrow(length = unit(0.2, 'cm')), size = 0.7, color = 'blue') +
+  geom_text(data = pca.env, aes(-PC1 * 4.5, PC2 *4.2, label = name),
+          color = 'black', size = 4.5)
+p<-p+geom_text_repel(aes(label=varnames),size=3)
+p<-p+ theme(axis.text.x = element_text(size=16,family = "serif"))+
+  theme(axis.text.y = element_text(size=16,family = "serif",color = "black"))+
+  theme(axis.title.x = element_text(size=16,family = "serif",color = "black"))+
+  theme(axis.title.y = element_text(size=16,family = "serif",color = "black"))+
+  theme(legend.text = element_text(size =14,family = "serif",color = "black"))+
+  theme( legend.title = element_text(size = 14,hjust = 0,family = "serif",color = "black"))+
+  theme(strip.text=element_text(size =16,family = "serif",color = "black"))
+p<-p+scale_color_manual(values = c('#fea477','#e34a33'))
+p
+
+ ggsave("Fig.PCA_ts.pdf", width = 6, height = 5)
+write.csv(plot_data,"PCA_ts.surface.csv")
+
+##2. SEM Model
+##Prepare and preprocess the data required for SEM modeling
+##read data
+library(piecewiseSEM)
+dat <- read.delim("PMNP.surface-sem.txt",header=T,row.names=1)
+##Standardized data
+dat.scaled <- as.data.frame(scale(dat))
+##Initial model
+microbe.list <- list(
+  lm1 <- lm(PMNP ~ TS+Turbidity+Nutri+Prey+Virus, na.action = na.omit, data = dat.scaled),
+  lm2 <- lm(Prey ~ TS+Turbidity+Nutri+Virus, na.action = na.omit, data = dat.scaled),
+  lm3 <- lm(Virus~  TS+Nutri, na.action = na.omit, data = dat.scaled)
+)
+microbe.psem <- as.psem(microbe.list)
+##Model results extraction
+(new.summary <- summary(microbe.psem, .progressBar = F))
+
+##Based on the results, non-significant and unimportant paths were removed to obtain the final optimized model.
+##Optimized model
+microbe.list2 <- list(
+  lm1 <- lm(PMNP ~ TS+Nutri+Virus, na.action = na.omit, data = dat.scaled),
+  lm3 <- lm(Virus~  TS+Nutri, na.action = na.omit, data = dat.scaled)
+)
+microbe.psem2 <- as.psem(microbe.list2)
+(new.summary2 <- summary(microbe.psem2, .progressBar = F))
+##Based on the results, the SEM model diagram was prepared using PowerPoint.
+##Other SEM Models were generated following this code as a template.
+
+
+
